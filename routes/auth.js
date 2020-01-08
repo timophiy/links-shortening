@@ -1,6 +1,9 @@
 const express = require('express');
 const { check, validationResult } = require('express-validator');
+const jwt = require('jsonwebtoken');
+const config = require('config');
 const User = require('../models/User');
+
 const router = express.Router();
 const registerValidationFields = [
   check('email', 'Email is invalid').isEmail(),
@@ -44,11 +47,20 @@ router.post('/login', loginValidationFields, async (req, res) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
 
+    return400IfErrors(errors, res);
     if (!user) return res.status(400).json({ message: 'User not found'});
 
     const isMatchPassword = await bcrypt.compare(password, user.password);
 
     if(!isMatchPassword) return res.status(400).json({ message: 'Incorrect password'});
+
+    const token = jwt.sign(
+      { userId: user.id },
+      config.get('jwtSecret'),
+      { expiresIn: '1h' }
+    );
+
+    return res.json({ token, userId: user.id });
   } catch (e) {
     res.status(500).json({ message: 'Something went wrong'})
   }
